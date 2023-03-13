@@ -651,6 +651,12 @@ bool ElfView::Init()
 				AddAutoSegment(adjustedSectionAddr, m_elfSections[i].size, m_elfSections[i].offset, size, flags);
 				segmentStart += ((m_elfSections[i].size + 15) & ~15);
 			}
+			else if ((m_elfSections[i].address + m_elfSections[i].size + imageBaseAdjustment) > GetEnd() || ((m_elfSections[i].address + imageBaseAdjustment) < GetStart()))
+			{
+				LogWarn("Section %s is outside of the address space of the file and will not be added", sectionNames[i].c_str());
+				continue;
+			}
+
 			uint64_t adjustedVirtualAddr = m_elfSections[i].address + imageBaseAdjustment;
 			AddAutoSection(sectionNames[i], adjustedVirtualAddr, m_elfSections[i].size, semantics, type, m_elfSections[i].align,
 				m_elfSections[i].entrySize, linkedSection, infoSection, m_elfSections[i].info);
