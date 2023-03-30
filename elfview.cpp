@@ -1523,7 +1523,7 @@ bool ElfView::Init()
 	// To deal with this we delay adding entry points until after symbols have been resolved
 	// and ALL the functions have been created. This allows us to query the existing functions
 	// platform. All in an effort to not create a function with the wrong architecture
-	if (entryPointAddress)
+	if (entryPointAddress && (entryPointAddress != GetStart()))
 	{
 		auto func = GetAnalysisFunctionsForAddress(entryPointAddress);
 		if (func.size() == 1)
@@ -1533,7 +1533,7 @@ bool ElfView::Init()
 	}
 
 	// Add a symbol for the entry point
-	if (entryPointAddress && !GetSymbolByAddress(entryPointAddress))
+	if (entryPointAddress && (entryPointAddress != GetStart()) && !GetSymbolByAddress(entryPointAddress))
 		DefineAutoSymbol(new Symbol(FunctionSymbol, "_start", entryPointAddress, GlobalBinding));
 
 	// Create type for ELF identification
