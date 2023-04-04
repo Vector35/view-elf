@@ -1428,6 +1428,17 @@ bool ElfView::Init()
 			((section->GetName() == ".init_array") || (section->GetName() == ".fini_array") ||
 				(section->GetName() == ".ctors") || (section->GetName() == ".dtors")))
 		{
+			// define a function pointer array: void (*init_array[])(void)
+			auto function = Type::FunctionType(Type::VoidType(), platform->GetDefaultCallingConvention(), vector<FunctionParameter>())->WithConfidence(0);
+			auto function_pointer = Type::PointerType(m_addressSize, function)->WithConfidence(0);
+			auto array = Type::ArrayType(function_pointer, section->GetLength() / m_addressSize);
+			DefineDataVariable(section->GetStart(), array);
+			// trim the first '.' from the section name
+			string autoSectionName = section->GetName().substr(1);
+			// define a symbol for the array
+			if (auto symbol = GetSymbolByAddress(section->GetStart()); !symbol)
+				DefineAutoSymbol(new Symbol(DataSymbol, autoSectionName, section->GetStart(), NoBinding));
+
 			virtualReader.Seek(section->GetStart());
 			for (uint32_t i = 0; i < section->GetLength() / m_addressSize; i++)
 			{
