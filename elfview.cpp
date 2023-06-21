@@ -888,18 +888,22 @@ bool ElfView::Init()
 			vector<Ref<Metadata>> libraryFound;
 			for (auto& libNameOffset : neededLibraries)
 			{
-				const string l = ReadStringTable(virtualReader, m_dynamicStringTable, libNameOffset);
-				libraries.push_back(new Metadata(string(l)));
-				Ref<TypeLibrary> typeLib = GetTypeLibrary(l);
+				const string libName = ReadStringTable(virtualReader, m_dynamicStringTable, libNameOffset);
+				if (!GetExternalLibraryByName(libName))
+				{
+					AddExternalLibrary(libName, nullptr);
+				}
+				libraries.push_back(new Metadata(string(libName)));
+				Ref<TypeLibrary> typeLib = GetTypeLibrary(libName);
 				if (!typeLib)
 				{
-					vector<Ref<TypeLibrary>> typeLibs = platform->GetTypeLibrariesByName(l);
+					vector<Ref<TypeLibrary>> typeLibs = platform->GetTypeLibrariesByName(libName);
 					if (typeLibs.size())
 					{
 						typeLib = typeLibs[0];
 						AddTypeLibrary(typeLib);
 
-						m_logger->LogDebug("elf: adding type library for '%s': %s (%s)", l.c_str(), typeLib->GetName().c_str(),
+						m_logger->LogDebug("elf: adding type library for '%s': %s (%s)", libName.c_str(), typeLib->GetName().c_str(),
 							typeLib->GetGuid().c_str());
 					}
 				}
