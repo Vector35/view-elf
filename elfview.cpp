@@ -889,9 +889,9 @@ bool ElfView::Init()
 			for (auto& libNameOffset : neededLibraries)
 			{
 				const string libName = ReadStringTable(virtualReader, m_dynamicStringTable, libNameOffset);
-				if (!GetExternalLibraryByName(libName))
+				if (!GetExternalLibrary(libName))
 				{
-					AddExternalLibrary(libName, nullptr);
+					AddExternalLibrary(libName, {}, true);
 				}
 				libraries.push_back(new Metadata(string(libName)));
 				Ref<TypeLibrary> typeLib = GetTypeLibrary(libName);
