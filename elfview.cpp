@@ -673,13 +673,28 @@ bool ElfView::Init()
 			m_logger->LogError("Support for ELF architecture 'x86' is not present");
 			break;
 		case 8:
+			#ifndef DEMO_VERSION
 			m_logger->LogError("Support for ELF architecture 'mips' is not present");
+			#else
+			m_logger->LogError("Binary Ninja free does not support ELF architecture 'mips'. "
+							   "Purchase Binary Ninja to unlock all features.");
+			#endif
 			break;
 		case 20:
+			#ifndef DEMO_VERSION
 			m_logger->LogError("Support for ELF architecture 'ppc' is not present");
+			#else
+			m_logger->LogError("Binary Ninja free does not support ELF architecture 'ppc'. "
+							   "Purchase Binary Ninja to unlock all features.");
+			#endif
 			break;
 		case 21:
+			#ifndef DEMO_VERSION
 			m_logger->LogError("Support for ELF architecture 'ppc64' is not present");
+			#else
+			m_logger->LogError("Binary Ninja free does not support ELF architecture 'ppc64'. "
+							   "Purchase Binary Ninja to unlock all features.");
+			#endif
 			break;
 		case 40:
 			m_logger->LogError("Support for ELF architecture 'armv7' is not present");
@@ -688,7 +703,12 @@ bool ElfView::Init()
 			m_logger->LogError("Support for ELF architecture 'x86_64' is not present");
 			break;
 		case 183:
+			#ifndef DEMO_VERSION
 			m_logger->LogError("Support for ELF architecture 'arm64' is not present");
+			#else
+			m_logger->LogError("Binary Ninja free does not support ELF architecture 'arm64'. "
+							   "Purchase Binary Ninja to unlock all features.");
+			#endif
 			break;
 		default:
 			m_logger->LogError("ELF architecture %d is not supported", m_commonHeader.arch);
