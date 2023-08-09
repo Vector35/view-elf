@@ -2518,8 +2518,21 @@ uint64_t ElfViewType::ParseHeaders(BinaryView* data, ElfIdent& ident, ElfCommonH
 	Ref<Metadata> metadata = new Metadata(metadataMap);
 	// retrieve architecture
 	// FIXME: Architecture registration methods should perhaps be virtual and take the raw data, or some additional opaque information.
-	Ref<Platform> recognizedPlatform = g_elfViewType->RecognizePlatform(commonHeader.arch, endianness, data, metadata);
+
 	endianness = header.flags & EF_ARM_BE8 ? BigEndian : endianness;
+
+	/* for architectures where .e_machine field doesn't disambiguate between 32/64 (like MIPS),
+	   form the conventional alternative id, including the .e_ident[EI_CLASS] field */
+	uint32_t altArchId = (ident.fileClass << 16) | commonHeader.arch;
+
+	Ref<Platform> recognizedPlatform = g_elfViewType->RecognizePlatform(commonHeader.arch, endianness, data, metadata);
+
+	if (!recognizedPlatform)
+	{
+		/* second try with the alternative architecture identifier */
+		recognizedPlatform = g_elfViewType->RecognizePlatform(altArchId, endianness, data, metadata);
+	}
+
 	if (recognizedPlatform)
 	{
 		if (plat)
@@ -2532,9 +2545,19 @@ uint64_t ElfViewType::ParseHeaders(BinaryView* data, ElfIdent& ident, ElfCommonH
 		BNEndianness codeEndianness = endianness;
 		if ((commonHeader.arch == EM_ARM) && (header.flags & EF_ARM_BE8))
 			codeEndianness = LittleEndian;
+
 		if (arch)
+		{
 			*arch = g_elfViewType->GetArchitecture(commonHeader.arch, codeEndianness);
+
+			if (!*arch)
+			{
+				/* second try with the alternative architecture identifier */
+				*arch = g_elfViewType->GetArchitecture(altArchId, codeEndianness);
+			}
+		}
 	}
+
 	return reader.GetOffset();
 }
 
