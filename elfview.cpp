@@ -1261,7 +1261,6 @@ bool ElfView::Init()
 
 	EndBulkModifySymbols();
 
-
 	auto relocHandler = m_arch->GetRelocationHandler("ELF");
 	if (relocHandler)
 	{
@@ -2099,6 +2098,57 @@ bool ElfView::Init()
 		QualifiedName symTableTypeName = DefineType(symTableTypeId, symTableName, symTableType);
 		DefineDataVariable(m_auxSymbolTable.offset, Type::ArrayType(Type::NamedType(this, symTableTypeName), m_auxSymbolTable.size / m_auxSymbolTableEntrySize));
 		DefineAutoSymbol(new Symbol(DataSymbol, "__elf_symbol_table", m_auxSymbolTable.offset, NoBinding));
+	}
+
+	// In 32-bit mips with .got, add .extern symbol "RTL_Resolve"
+	if (gotStart && In(m_arch->GetName(), {"mips32", "mipsel32"}))
+	{
+		const char *name = "RTL_Resolve";
+
+		/* create symbol for RTL_Resolve(), address will be auto-assigned after placement in .extern */
+		Ref<Symbol> symbol = new Symbol(
+			ExternalSymbol, /* type */
+			name, /* shortName */
+			name, /* fullName */
+			name, /* rawName */
+			0, /* byAddr */
+			GlobalBinding, /* binding */
+			GetExternalNameSpace() /* namespace */
+		);
+
+		/* create type, associate it with RTL_Resolve */
+		Ref<Type> ptr_type = Type::PointerType(m_arch, Type::VoidType())->WithConfidence(BN_FULL_CONFIDENCE);
+
+		Ref<CallingConvention> cc = m_arch->GetCallingConventionByName("linux-rtlresolve");
+
+		Ref<Type> type = Type::FunctionType(
+				Type::VoidType(), /* returnValue */
+				cc, /* callingConvention */
+				{ /* params */
+					FunctionParameter("caller_ret_addr", ptr_type),
+					FunctionParameter("sym_idx", Type::IntegerType(4, true)),
+				},
+				false, /* hasVariableArguments */
+				false, /* canReturn */
+				0
+		);
+
+		/* this BinaryView helper does:
+		   1) DefineAutoSymbol(symbol);
+		   2) m_externalTypes[name] = type;
+		   ...so that upon BinaryView finalization, data variables are made */
+		DefineAutoSymbolAndVariableOrFunction(GetDefaultPlatform(), symbol, type);
+
+		/* create relocation entry so that reloc servicing will
+		   overwrite GOT[0] with pointer to this symbol */
+		BNRelocationInfo relocInfo;
+		memset(&relocInfo, 0, sizeof(BNRelocationInfo));
+		relocInfo.base = gotStart;
+		relocInfo.address = gotStart;
+		relocInfo.size = 4;
+		relocInfo.nativeType = 2; /* R_MIPS_32 */
+
+		DefineRelocation(m_arch, relocInfo, symbol, relocInfo.address);
 	}
 
 	std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
