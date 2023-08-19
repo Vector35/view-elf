@@ -451,9 +451,8 @@ bool ElfView::Init()
 
 	uint64_t preferredImageBase = initialImageBase;
 	Ref<Settings> viewSettings = Settings::Instance();
-	m_extractMangledTypes = false;
-	if (viewSettings && viewSettings->Contains("analysis.extractTypesFromMangledNames"))
-		m_extractMangledTypes = viewSettings->Get<bool>("analysis.extractTypesFromMangledNames", this);
+	m_extractMangledTypes = viewSettings->Get<bool>("analysis.extractTypesFromMangledNames", this);
+	m_simplifyTemplates = viewSettings->Get<bool>("analysis.types.templateSimplifier", this);
 
 	Ref<Settings> settings = GetLoadSettings(GetTypeName());
 	if (settings && settings->Contains("loader.imageBase") && settings->Contains("loader.architecture")) // handle overrides
@@ -2173,7 +2172,7 @@ void ElfView::DefineElfSymbol(BNSymbolType type, const string& incomingName, uin
 		{
 			QualifiedName varName;
 			Ref<Type> demangledType;
-			if (DemangleGNU3(m_arch, rawName, demangledType, varName, this))
+			if (DemangleGNU3(m_arch, rawName, demangledType, varName, m_simplifyTemplates))
 			{
 				shortName = varName.GetString();
 				fullName = shortName;

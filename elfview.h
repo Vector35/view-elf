@@ -488,6 +488,7 @@ namespace BinaryNinja
 		bool m_objectFile;
 		Ref<Logger> m_logger;
 		bool m_extractMangledTypes;
+		bool m_simplifyTemplates;
 		bool m_relocatable = false;
 
 		// Section and program headers, internally use 64-bit form as it is a superset of 32-bit
