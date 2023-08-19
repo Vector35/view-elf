@@ -721,7 +721,10 @@ bool ElfView::Init()
 
 	// Finished for parse only mode
 	if (m_parseOnly)
+	{
+		m_stringTableCache.clear();
 		return true;
+	}
 
 	// Set reader endianness
 	reader.SetEndianness(m_endian);
@@ -2101,6 +2104,7 @@ bool ElfView::Init()
 	std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
 	double t = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count() / 1000.0;
 	m_logger->LogInfo("ELF parsing took %.3f seconds\n", t);
+	m_stringTableCache.clear();
 	return true;
 }
 
@@ -2285,8 +2289,18 @@ string ElfView::ReadStringTable(BinaryReader& reader, const Elf64SectionHeader& 
 	if (offset == 0 || offset > section.size)
 		return "";
 
-	reader.Seek(section.offset + offset);
-	return reader.ReadCString(section.size - offset);
+	auto itr = m_stringTableCache.find(section.offset);
+	if (itr == m_stringTableCache.end())
+	{
+		std::vector<char>& tableCache = m_stringTableCache[section.offset];
+		tableCache.resize(section.size);
+		reader.Seek(section.offset);
+		reader.Read(tableCache.data(), section.size);
+		itr = m_stringTableCache.find(section.offset);
+	}
+
+	const std::vector<char>& tableCache = itr->second;
+	return std::string(&tableCache[offset], strlen(tableCache.data() + offset));
 }
 
 

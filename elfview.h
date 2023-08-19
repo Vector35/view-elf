@@ -490,6 +490,7 @@ namespace BinaryNinja
 		bool m_extractMangledTypes;
 		bool m_simplifyTemplates;
 		bool m_relocatable = false;
+		std::map<uint64_t, std::vector<char>> m_stringTableCache;
 
 		// Section and program headers, internally use 64-bit form as it is a superset of 32-bit
 		std::vector<Elf64SectionHeader> m_elfSections;
