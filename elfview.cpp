@@ -1279,7 +1279,7 @@ bool ElfView::Init()
 					auto sec = GetSectionByName(sectionName);
 					if (!sec)
 						continue;
-					reloc.offset += sec->GetStart();
+					reloc.offset += sec->GetStart() - imageBaseAdjustment;
 				}
 
 				relocInfo.symbolIndex = reloc.sym;
