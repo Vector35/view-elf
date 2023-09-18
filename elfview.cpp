@@ -1444,18 +1444,19 @@ bool ElfView::Init()
 			for (uint32_t i = 0; i < section->GetLength() / m_addressSize; i++)
 			{
 				uint64_t entry;
-				if (m_addressSize == 4)
+				try
 				{
-					entry = virtualReader.Read32();
-					if ((int32_t)entry == -1)
-						continue;
-				}
-				else
-				{
-					entry = virtualReader.Read64();
+					entry = virtualReader.ReadPointer();
 					if ((int64_t)entry == -1)
 						continue;
 				}
+				catch (const ReadException& r)
+				{
+					m_logger->LogWarn("Fail to read pointer at %#" PRIx64 " while parsing section %s",
+									  virtualReader.GetOffset(), autoSectionName.c_str());
+					break;
+				}
+
 				if (entry)
 				{
 					entry += imageBaseAdjustment;
