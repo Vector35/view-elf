@@ -758,6 +758,9 @@ bool ElfView::Init()
 	uint64_t baseAddress = GetStart();
 	vector<uint64_t> neededLibraries;
 	bool mipsSymValid = false;
+	// FIXME: ARM specific GOT entries should be done in the MIPS plugin, as above
+	bool isArmV7 = m_arch->GetName() == "armv7";
+	vector<uint64_t> tlsModuleStarts;
 
 	// Parse dynamic table
 	if (auto dynSeg = GetSegmentAt(m_dynamicTable.virtualAddress + imageBaseAdjustment); dynSeg && m_dynamicTable.virtualAddress)
@@ -1312,6 +1315,9 @@ bool ElfView::Init()
 				memset(relocInfo.relocationDataCache, 0, sizeof(relocInfo.relocationDataCache));
 				virtualReader.TryRead(relocInfo.relocationDataCache, MAX_RELOCATION_SIZE);
 				m_relocationInfo.push_back(relocInfo);
+
+				if (isArmV7 && reloc.relocType == R_ARM_TLS_DTPMOD32)
+					tlsModuleStarts.push_back(reloc.offset);
 			}
 
 			if (relocHandler->GetRelocationInfo(this, m_arch, m_relocationInfo))
@@ -1326,7 +1332,7 @@ bool ElfView::Init()
 					if (relocInfo.type == IgnoredRelocation)
 						continue;
 
-					// Define absolute reloctions with no symbol specified such as R_PPC_RELATIVE and R_ARM_IRELATIVE
+					// Define absolute relocations with no symbol specified such as R_PPC_RELATIVE and R_ARM_IRELATIVE
 					// Define unhandled relocations in order to detect them and avoid creating functions at invalid target addresses
 					if ((relocInfo.symbolIndex == 0) || (relocInfo.type == UnhandledRelocation))
 					{
@@ -2170,6 +2176,21 @@ bool ElfView::Init()
 		relocInfo.nativeType = 2; /* R_MIPS_32 */
 
 		DefineRelocation(m_arch, relocInfo, symbol, relocInfo.address);
+	}
+
+	// Add type, data variables for TLS entries
+	if (!tlsModuleStarts.empty())
+	{
+		StructureBuilder builder;
+		builder.AddMember(Type::IntegerType(m_elf32 ? 4 : 8, false), "ti_module");
+		builder.AddMember(Type::IntegerType(m_elf32 ? 4 : 8, false), "ti_offset");
+
+		Ref<Structure> struct_ = builder.Finalize();
+		Ref<Type> type_ = Type::StructureType(struct_);
+		QualifiedName symQualName = DefineType("elf:[\"dl_tls_index\"]", string("dl_tls_index"), type_); // "dl_tls_index_1"
+
+		for (auto offset : tlsModuleStarts)
+			DefineDataVariable(offset, Type::NamedType(this, symQualName));
 	}
 
 	std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();

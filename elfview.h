@@ -339,6 +339,10 @@
 // #define ELF_SHN_MIPS_SCOMMON    0xff03
 // #define ELF_SHN_MIPS_SUNDEFINED 0xff04
 
+// ARM ONLY
+#define R_ARM_TLS_DTPMOD32 0x11
+#define R_ARM_TLS_DTPOFF32 0x12
+
 namespace BinaryNinja
 {
 	class ElfFormatException: public std::exception
