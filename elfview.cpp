@@ -55,6 +55,7 @@ ElfView::ElfView(BinaryView* data, bool parseOnly): BinaryView("ELF", data->GetF
 	memset(&m_dynamicSymbolTableSection, 0, sizeof(m_dynamicSymbolTableSection));
 	memset(&m_dynamicStringTable, 0, sizeof(m_dynamicStringTable));
 	memset(&m_dynamicTable, 0, sizeof(m_dynamicTable));
+	memset(&m_tlsSegment, 0, sizeof(m_tlsSegment));
 	memset(&m_auxSymbolTable, 0, sizeof(m_auxSymbolTable));
 	memset(&m_sectionStringTable, 0, sizeof(m_sectionStringTable));
 	memset(&m_sectionOpd, 0, sizeof(m_sectionOpd));
@@ -167,7 +168,7 @@ ElfView::ElfView(BinaryView* data, bool parseOnly): BinaryView("ELF", data->GetF
 
 		if (!memcmp(m_ident.signature, "\x7f" "CGC", 4))
 		{
-			// CGC uses phyical address for loading
+			// CGC uses physical address for loading
 			uint64_t temp = progHeader.virtualAddress;
 			progHeader.virtualAddress = progHeader.physicalAddress;
 			progHeader.physicalAddress = temp;
@@ -177,6 +178,8 @@ ElfView::ElfView(BinaryView* data, bool parseOnly): BinaryView("ELF", data->GetF
 
 		if (progHeader.type == ELF_PT_DYNAMIC)
 			m_dynamicTable = progHeader;
+		if (progHeader.type == ELF_PT_TLS)
+			m_tlsSegment = progHeader;
 	}
 
 	// Parse section headers
@@ -1199,6 +1202,19 @@ bool ElfView::Init()
 			case ELF_STT_FUNC:
 				DefineElfSymbol(FunctionSymbol, entry->name, entry->value, false, entry->binding, entry->size);
 				break;
+			case ELF_STT_TLS:
+				/* ignore TLS mapping symbols, assume all is data */
+				if (entry->name == "$d")
+					break;
+				/* ignore module base, which just marks start offset of vars within .tdata */
+				if (entry->name == "_TLS_MODULE_BASE_")
+					break;
+				/* is the value a valid offset in the TLS template? */
+				if (m_tlsSegment.virtualAddress == 0 || (entry->value + entry->size) > m_tlsSegment.memorySize)
+					break;
+				/* the value is the offset into the TLS template, specified by program header type 7 (PT_TLS) */
+				DefineElfSymbol(DataSymbol, entry->name, m_tlsSegment.virtualAddress + entry->value, false, entry->binding, entry->size);
+				break;
 			case ELF_STT_NOTYPE:
 				// TODO: ARM specific local entry handling to be moved to architecture extension for ELF
 				if (entry->binding == LocalBinding && In(m_arch->GetName(), {"aarch64", "armv7", "armv7eb", "thumb2", "thumb2eb"}))
@@ -2190,7 +2206,9 @@ bool ElfView::Init()
 		QualifiedName symQualName = DefineType("elf:[\"dl_tls_index\"]", string("dl_tls_index"), type_); // "dl_tls_index_1"
 
 		for (auto offset : tlsModuleStarts)
+		{
 			DefineDataVariable(offset, Type::NamedType(this, symQualName));
+		}
 	}
 
 	std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();

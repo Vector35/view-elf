@@ -502,6 +502,7 @@ namespace BinaryNinja
 		Elf64SectionHeader m_symbolTableSection, m_dynamicSymbolTableSection;
 		Elf64SectionHeader m_auxSymbolTable, m_dynamicStringTable, m_sectionStringTable, m_sectionOpd;
 		Elf64ProgramHeader m_dynamicTable;
+		Elf64ProgramHeader m_tlsSegment;
 		std::map<uint64_t, uint64_t> m_localGotEntries;
 		std::set<uint64_t> m_gotEntryLocations;
 		std::vector<BNRelocationInfo> m_relocationInfo;
