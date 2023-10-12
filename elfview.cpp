@@ -764,6 +764,7 @@ bool ElfView::Init()
 	// FIXME: ARM specific GOT entries should be done in the MIPS plugin, as above
 	bool isArmV7 = m_arch->GetName() == "armv7";
 	vector<uint64_t> tlsModuleStarts;
+	vector<uint64_t> tlsOffsets;
 
 	// Parse dynamic table
 	if (auto dynSeg = GetSegmentAt(m_dynamicTable.virtualAddress + imageBaseAdjustment); dynSeg && m_dynamicTable.virtualAddress)
@@ -1203,12 +1204,10 @@ bool ElfView::Init()
 				DefineElfSymbol(FunctionSymbol, entry->name, entry->value, false, entry->binding, entry->size);
 				break;
 			case ELF_STT_TLS:
-				/* ignore TLS mapping symbols, assume all is data */
-				if (entry->name == "$d")
-					break;
-				/* ignore module base, which just marks start offset of vars within .tdata */
-				if (entry->name == "_TLS_MODULE_BASE_")
-					break;
+				/* - only create Binja symbols for .symtab (not .dynsym) symbols
+				   - ignore mapping symbols, all is assumed data
+				   - ignore 0-length symbols (like _TLS_MODULE_BASE_) that are just informative */
+				if (entry->dynamic || entry->size == 0 || entry->name == "$d")
 				/* is the value a valid offset in the TLS template? */
 				if (m_tlsSegment.virtualAddress == 0 || (entry->value + entry->size) > m_tlsSegment.memorySize)
 					break;
@@ -1332,8 +1331,13 @@ bool ElfView::Init()
 				virtualReader.TryRead(relocInfo.relocationDataCache, MAX_RELOCATION_SIZE);
 				m_relocationInfo.push_back(relocInfo);
 
-				if (isArmV7 && reloc.relocType == R_ARM_TLS_DTPMOD32)
-					tlsModuleStarts.push_back(reloc.offset);
+				if (isArmV7)
+				{
+					if(reloc.relocType == R_ARM_TLS_DTPOFF32)
+						tlsOffsets.push_back(reloc.offset);
+					else if(reloc.relocType == R_ARM_TLS_DTPMOD32)
+						tlsModuleStarts.push_back(reloc.offset);
+				}
 			}
 
 			if (relocHandler->GetRelocationInfo(this, m_arch, m_relocationInfo))
@@ -2176,14 +2180,14 @@ bool ElfView::Init()
 				0
 		);
 
-		/* this BinaryView helper does:
+		/* This BinaryView helper does:
 		   1) DefineAutoSymbol(symbol);
 		   2) m_externalTypes[name] = type;
-		   ...so that upon BinaryView finalization, data variables are made */
+		   ...so that upon BinaryView finalization, data variables are made. */
 		DefineAutoSymbolAndVariableOrFunction(GetDefaultPlatform(), symbol, type);
 
-		/* create relocation entry so that reloc servicing will
-		   overwrite GOT[0] with pointer to this symbol */
+		/* Create relocation entry associated with this symbol so that reloc
+		   servicing will overwrite GOT[0] with symbol's address. */
 		BNRelocationInfo relocInfo;
 		memset(&relocInfo, 0, sizeof(BNRelocationInfo));
 		relocInfo.base = gotStart;
@@ -2195,22 +2199,18 @@ bool ElfView::Init()
 	}
 
 	// Add type, data variables for TLS entries
-	if (!tlsModuleStarts.empty())
+	for (auto offset : tlsModuleStarts)
 	{
-		StructureBuilder builder;
-		builder.AddMember(Type::IntegerType(m_elf32 ? 4 : 8, false), "ti_module");
-		builder.AddMember(Type::IntegerType(m_elf32 ? 4 : 8, false), "ti_offset");
-
-		Ref<Structure> struct_ = builder.Finalize();
-		Ref<Type> type_ = Type::StructureType(struct_);
-		QualifiedName symQualName = DefineType("elf:[\"dl_tls_index\"]", string("dl_tls_index"), type_); // "dl_tls_index_1"
-
-		for (auto offset : tlsModuleStarts)
-		{
-			DefineDataVariable(offset, Type::NamedType(this, symQualName));
-		}
+		/* All module ID's are set to 0. */
+		DefineDataVariable(offset, Type::IntegerType(4, false)->WithConfidence(BN_FULL_CONFIDENCE));
 	}
-
+	for (auto offset : tlsOffsets)
+	{
+		/* In runtime reality, these become the offsets of the variables within TLS data structures.
+		   In static listing, we place a pointer to the variable for user convenience. */
+		DefineDataVariable(offset,
+			Type::PointerType(m_arch, Type::VoidType()));
+	}
 	std::chrono::steady_clock::time_point endTime = std::chrono::steady_clock::now();
 	double t = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime).count() / 1000.0;
 	m_logger->LogInfo("ELF parsing took %.3f seconds\n", t);
