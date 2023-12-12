@@ -1527,6 +1527,16 @@ bool ElfView::Init()
 				"ELF view did not find a .got section despite detected relocations; "
 				"attempting to create sections with appropriate semantics");
 
+			// Ensure the collected GOT entry locations include the program header specified GOT address.
+			if (gotStart)
+			{
+				m_gotEntryLocations.emplace(gotStart);
+				// A common setup observed is GOT[0] being the resolver, GOT[1] a constant, then pointers.
+				// If gotStart and a collected address sandwich a constant, include the constant.
+				if (m_gotEntryLocations.find(gotStart + 2 * m_addressSize) != m_gotEntryLocations.end())
+					m_gotEntryLocations.emplace(gotStart + m_addressSize);
+			}
+
 			map<uint64_t, size_t> gotSectionsToCreate;
 
 			auto it = m_gotEntryLocations.begin();
