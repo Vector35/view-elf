@@ -1102,7 +1102,10 @@ bool ElfView::Init()
 							}
 						}
 						if (!relocationExists)
-							relocs.push_back(ELFRelocEntry(gotEntry, i, 126 /*R_MIPS_COPY*/, 0, 0, false));
+						{
+							int relocType = m_arch->GetAddressSize() == 4 ? 126 /* R_MIPS_COPY */ : 125 /* R_MIPS64_COPY */;
+							relocs.push_back(ELFRelocEntry(gotEntry, i, relocType, 0, 0, false));
+						}
 						DefineElfSymbol(ImportAddressSymbol, entry.name, gotEntry, true, entry.binding, entry.size);
 					}
 					break;
@@ -1124,7 +1127,10 @@ bool ElfView::Init()
 							}
 						}
 						if (!relocationExists)
-							relocs.push_back(ELFRelocEntry(gotEntry, i, 127 /*R_MIPS_JUMP_SLOT*/, 0, 0, false));
+						{
+							int relocType = m_arch->GetAddressSize() == 4 ? 127 /*R_MIPS_JUMP_SLOT*/ : 125 /* R_MIPS64_COPY */;
+							relocs.push_back(ELFRelocEntry(gotEntry, i, relocType, 0, 0, false));
+						}
 						DefineElfSymbol(ImportAddressSymbol, entry.name, gotEntry, true, entry.binding, entry.size);
 						// TODO for now create associated PLT entry if it exists. At some point we could extend the detection in RecognizeELFPLTEntries in arch_mips.
 						Ref<Symbol> sym = GetSymbolByAddress(gotEntry);
@@ -2158,7 +2164,7 @@ bool ElfView::Init()
 	}
 
 	// In 32-bit mips with .got, add .extern symbol "RTL_Resolve"
-	if (gotStart && In(m_arch->GetName(), {"mips32", "mipsel32"}))
+	if (gotStart && In(m_arch->GetName(), {"mips32", "mipsel32", "mips64"}))
 	{
 		const char *name = "RTL_Resolve";
 
@@ -2202,8 +2208,8 @@ bool ElfView::Init()
 		memset(&relocInfo, 0, sizeof(BNRelocationInfo));
 		relocInfo.base = gotStart;
 		relocInfo.address = gotStart;
-		relocInfo.size = 4;
-		relocInfo.nativeType = 2; /* R_MIPS_32 */
+		relocInfo.size = m_arch->GetAddressSize();
+		relocInfo.nativeType = m_arch->GetAddressSize() == 4 ? 2 /* R_MIPS_32 */ : 18 /* R_MIPS_64 */;
 
 		DefineRelocation(m_arch, relocInfo, symbol, relocInfo.address);
 	}
