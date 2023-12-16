@@ -2164,7 +2164,7 @@ bool ElfView::Init()
 	}
 
 	// In 32-bit mips with .got, add .extern symbol "RTL_Resolve"
-	if (gotStart && In(m_arch->GetName(), {"mips32", "mipsel32", "mips64"}))
+	if (gotStart && In(m_arch->GetName(), {"mips32", "mipsel32", "mips64", "nanomips"}))
 	{
 		const char *name = "RTL_Resolve";
 
