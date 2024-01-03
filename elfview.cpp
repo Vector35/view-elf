@@ -1433,6 +1433,17 @@ bool ElfView::Init()
 								continue;
 							}
 						}
+						else if (entry.section < m_elfSections.size())
+						{
+							// symbol is relative to a section, look up by address instead of name to avoid ambiguity
+							uint64_t target = m_elfSections[entry.section].address + entry.value;
+							auto symbol = GetSymbolByAddress(target);
+							if (symbol)
+							{
+								DefineRelocation(m_arch, relocInfo, symbol, relocInfo.address);
+								continue;
+							}
+						}
 
 						// retrieve first symbol that is not a symbol relocation
 						auto symbols = GetSymbolsByName(entry.name);
