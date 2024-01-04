@@ -2282,6 +2282,12 @@ void ElfView::DefineElfSymbol(BNSymbolType type, const string& incomingName, uin
 		name = name.substr(0, pos);
 	}
 
+	// Deprioritize local label symbol names
+	if (type == DataSymbol && binding == LocalBinding && !name.empty() && name[0] == '.')
+	{
+		type = LocalLabelSymbol;
+	}
+
 	// If name is empty, symbol is not valid
 	if (name.size() == 0)
 		return;
