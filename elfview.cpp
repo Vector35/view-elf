@@ -1534,6 +1534,15 @@ bool ElfView::Init()
 					else
 						AddFunctionForAnalysis(platform, entry);
 					m_logger->LogDebug("Adding function start: %#" PRIx64 "\n", entry);
+
+					// name functions in .init_array and .fini_array
+					if (!GetSymbolByAddress(entry))
+					{
+						if (section->GetName() == ".init_array")
+							DefineAutoSymbol(new Symbol(FunctionSymbol, "_INIT_" + std::to_string(i), entry, GlobalBinding));
+						else if (section->GetName() == ".fini_array")
+							DefineAutoSymbol(new Symbol(FunctionSymbol, "_FINI_" + std::to_string(i), entry, GlobalBinding));
+					}
 				}
 			}
 
